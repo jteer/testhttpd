@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::server::conn::http1;
@@ -11,6 +11,11 @@ use tokio::fs;
 use tokio::net::TcpListener;
 use tracing::{info, warn};
 
+#[derive(Debug, Clone, ValueEnum)]
+enum LogFormat {
+    Json,
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct Args {
@@ -21,13 +26,25 @@ struct Args {
     /// Serve files from this directory
     #[arg(long)]
     serve_dir: Option<PathBuf>,
+
+    /// Log output format
+    #[arg(short, long, value_enum, default_value = "json")]
+    format: LogFormat,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    tracing_subscriber::fmt::init();
-
     let args = Args::parse();
+    match args.format {
+        LogFormat::Json => {
+            tracing_subscriber::fmt()
+                .json()
+                .with_level(false)
+                .with_target(false)
+                .init();
+        }
+    }
+
     let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
     let listener = TcpListener::bind(addr).await?;
 
